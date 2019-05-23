@@ -55,7 +55,7 @@ int main(void)
 {
     DDRA = 0xFF; PORTA = 0x00;
 	DDRB = 0xFF; PORTB = 0x00;
-	DDRC = 0x00; PORTA = 0xFF;
+	DDRC = 0x00; PORTC = 0xFF;
 	DDRD = 0xFF; PORTD = 0x00;
 	
 	TimerSet(50);
@@ -66,7 +66,7 @@ int main(void)
 	uc C2 = 0x00;
 	uc C3 = 0x00;
 	
-	transmit_data(0x11);
+	transmit_data(0xF0);
 	
     while (1) 
     {
@@ -74,5 +74,12 @@ int main(void)
 		C1 = ~PINC & 0x02;
 		C2 = ~PINC & 0x04;
 		C3 = ~PINC & 0x08;
+		
+		if(C0) {
+			transmit_data(0x01);
+		}
+		if(C1) {
+			transmit_data(0x10);
+		}
 	}
 }
