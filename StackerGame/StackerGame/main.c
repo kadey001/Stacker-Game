@@ -18,30 +18,6 @@
 #define SRCLK 0x04
 #define SRCLR 0x08
 
-/*
-void transmit_data(uc data) {
-	//Set SRCLR High + RCLK and SRCLK Low
-	PORTB = 0x08;
-	while(!TimerFlag);
-	TimerFlag = 0;
-	//Set transmit bit
-	if(data == 0x00) {
-		PORTB = 0x08;
-		while(!TimerFlag);
-		TimerFlag = 0;
-		PORTB = 0x0C;
-	}
-	else {
-		PORTB = 0x09;
-		while(!TimerFlag);
-		TimerFlag = 0;
-		PORTB = 0x0D;
-		while(!TimerFlag);
-		TimerFlag = 0;
-	}
-}
-*/
-
 void transmit_data(uc data) {
 	//uc tempData = 0x00;
 	// for each bit of data
@@ -71,6 +47,8 @@ B3 = SRCLR
 
 C0 = Button 1
 C1 = Button 2
+C2 = Button 3
+C3 = Button 4
 */
 
 int main(void)
@@ -98,4 +76,3 @@ int main(void)
 		C3 = ~PINC & 0x08;
 	}
 }
-
