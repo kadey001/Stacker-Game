@@ -10,33 +10,10 @@
 #include "timer.h"
 #include "queue.h"
 #include "scheduler.h"
+#include "pwm.c"
+#include "shift_reg.c"
 
-#define uc unsigned char 
-
-#define SER 0x01
-#define RCLK 0x02
-#define SRCLK 0x04
-#define SRCLR 0x08
-
-void transmit_data(uc data) {
-	//uc tempData = 0x00;
-	// for each bit of data
-	for(uc i = 0; i < 8; ++i){
-		// Set SRCLR to 1 allowing data to be set
-		// Also clear SRCLK in preparation of sending data
-		PORTB = SRCLR;
-		// set SER = next bit of data to be sent.
-		uc sendBit = (SRCLR | (SER & data));
-		data = data >> 1;
-		// set SRCLK = 1. Rising edge shifts next bit of data into the shift register
-		PORTB = (sendBit | SRCLK);
-		// end for each bit of data
-	}
-	// set RCLK = 1. Rising edge copies data from the "Shift" register to the "Storage" register
-	PORTB = (SRCLR | RCLK);
-	// clears all lines in preparation of a new transmission
-	//PORTB = 0x00;
-}
+#define uc unsigned char
 
 
 /*
@@ -58,6 +35,7 @@ int main(void)
 	DDRC = 0x00; PORTC = 0xFF;
 	DDRD = 0xFF; PORTD = 0x00;
 	
+	PWM_on();
 	TimerSet(50);
 	TimerOn();
 	
@@ -78,8 +56,9 @@ int main(void)
 		if(C0) {
 			transmit_data(0x01);
 		}
-		if(C1) {
-			transmit_data(0x10);
+		else if(C1) {
+			clear_data();
+			//transmit_data(0x10);
 		}
 	}
 }
