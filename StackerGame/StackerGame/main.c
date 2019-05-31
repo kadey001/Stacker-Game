@@ -39,11 +39,13 @@ C3 = Button 4
 
 //===User Defined FSMs===
 enum soundState { OFF, SUCCESS, FAIL };
+void 
 
 int SMTick1(int state) {
 	
 	uc button1 = ~PINC & 0x01;
 	uc button2 = ~PINC & 0x02;
+	static uc tick1;
 	
 	switch(state) {
 		case OFF:
@@ -57,28 +59,45 @@ int SMTick1(int state) {
 				state = OFF;
 			}
 			break;
-		case SUCCESS: break;
-		case FAIL: break;
+		case SUCCESS: 
+			if(tick1 == 2) {
+				state = OFF;
+			}
+			else {
+				state = SUCCESS;
+			}
+			break;
+		case FAIL: 
+			if(tick1 == 2) {
+				state = OFF;
+			}
+			else {
+				state = FAIL;
+			}
+			break;
 	}
 	switch(state) {
-		case OFF: set_PWM(0); break;
+		case OFF: 
+			set_PWM(0); 
+			tick1 = 0;
+			break;
 		case SUCCESS: 
-			set_PWM(success[0]);
-			while(!TimerFlag);
-			TimerFlag = 0;
-			set_PWM(success[1]);
-			while(!TimerFlag);
-			TimerFlag = 0;
-			state = OFF;
+			if(tick1 == 0) {
+				set_PWM(success[0]);
+			}
+			else if(tick1 == 1) {
+				set_PWM(success[1]);
+			}
+			++tick1;
 			break;
 		case FAIL:
-			set_PWM(success[0]);
-			while(!TimerFlag);
-			TimerFlag = 0;
-			set_PWM(success[1]);
-			while(!TimerFlag);
-			TimerFlag = 0;
-			state = OFF;
+			if(tick1 == 0) {
+				set_PWM(fail[0]);
+			}
+			else if(tick1 == 1) {
+				set_PWM(fail[1]);
+			}
+			++tick1;
 			break;
 	}
 	return state;
