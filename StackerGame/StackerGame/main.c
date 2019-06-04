@@ -43,8 +43,8 @@ C3 = Button 4
 
 //===Shared variables===
 //[0] = row zero. EX: 0x01 would place block row 1 column 8
-us placedBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0x0F }; 
-us currentBlocks[] = { 0, 0, 0, 0, 0, 0, 0x0F, 0 };
+us placedBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0 }; 
+us currentBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 //===Functions===
 uc checkPlacement(uc placed, uc current, uc size) { //Checks if placement was valid, returns # of blocks placed correctly
@@ -64,6 +64,7 @@ uc checkPlacement(uc placed, uc current, uc size) { //Checks if placement was va
 				break;
 		}
 	}
+	return 0;
 }
 
 //===User Defined FSMs===
@@ -136,86 +137,86 @@ enum displayState { ROW1, ROW2, ROW3, ROW4, ROW5, ROW6, ROW7, ROW8 };
 
 int SMTick2(int state) {
 	clear_data();
-	clear_data();
+	//clear_data();
 	
 	switch(state) {
 		case ROW1:
-			transmit_data(0x7F);//Select Row
+			//transmit_data(0x7F);//Select Row
 			if(placedBlocks[0] != 0) {
-				transmit_data(placedBlocks[0]);
+				transmit_data(placedBlocks[0], 0x7F);
 			}
 			else {
-				transmit_data(currentBlocks[0]);
+				transmit_data(currentBlocks[0], 0x7F);
 			}
 			state = ROW2;
 			break;
 		case ROW2:
-			transmit_data(0xBF);//Select Row
+			//transmit_data(0xBF);//Select Row
 			if(placedBlocks[1] != 0) {
-				transmit_data(placedBlocks[1]);
+				transmit_data(placedBlocks[1], 0xBF);
 			}
 			else {
-				transmit_data(currentBlocks[1]);
+				transmit_data(currentBlocks[1], 0xBF);
 			}
 			state = ROW3;
 			break;
 		case ROW3:
-			transmit_data(0xDF);//Select Row
+			//transmit_data(0xDF);//Select Row
 			if(placedBlocks[2] != 0) {
-				transmit_data(placedBlocks[2]);
+				transmit_data(placedBlocks[2], 0xDF);
 			}
 			else {
-				transmit_data(currentBlocks[2]);
+				transmit_data(currentBlocks[2], 0xDF);
 			}
 			state = ROW4;
 			break;
 		case ROW4:
-			transmit_data(0xEF);//Select Row
+			//transmit_data(0xEF);//Select Row
 			if(placedBlocks[3] != 0) {
-				transmit_data(placedBlocks[3]);
+				transmit_data(placedBlocks[3], 0xEF);
 			}
 			else {
-				transmit_data(currentBlocks[3]);
+				transmit_data(currentBlocks[3], 0xEF);
 			}
 			state = ROW5;
 			break;
 		case ROW5:
-			transmit_data(0xF7);//Select Row
+			//transmit_data(0xF7);//Select Row
 			if(placedBlocks[4] != 0) {
-				transmit_data(placedBlocks[4]);
+				transmit_data(placedBlocks[4], 0xF7);
 			}
 			else {
-				transmit_data(currentBlocks[4]);
+				transmit_data(currentBlocks[4], 0xF7);
 			}
 			state = ROW6;
 			break;
 		case ROW6:
-			transmit_data(0xFB);//Select Row
+			//transmit_data(0xFB);//Select Row
 			if(placedBlocks[5] != 0) {
-				transmit_data(placedBlocks[5]);
+				transmit_data(placedBlocks[5], 0xFB);
 			}
 			else {
-				transmit_data(currentBlocks[5]);
+				transmit_data(currentBlocks[5], 0xFB);
 			}
 			state = ROW7;
 			break;
 		case ROW7:
-			transmit_data(0xFD);//Select Row
+			//transmit_data(0xFD);//Select Row
 			if(placedBlocks[6] != 0) {
-				transmit_data(placedBlocks[6]);
+				transmit_data(placedBlocks[6], 0xFD);
 			}
 			else {
-				transmit_data(currentBlocks[6]);
+				transmit_data(currentBlocks[6], 0xFD);
 			}
 			state = ROW8;
 			break;
 		case ROW8:
-			transmit_data(0xFE);//Select Row
+			//transmit_data(0xFE);//Select Row
 			if(placedBlocks[7] != 0) {
-				transmit_data(placedBlocks[7]);
+				transmit_data(placedBlocks[7], 0xFE);
 			}
 			else {
-				transmit_data(currentBlocks[7]);
+				transmit_data(currentBlocks[7], 0xFE);
 			}
 			state = ROW1;
 			break;
@@ -223,6 +224,7 @@ int SMTick2(int state) {
 			state = ROW1;
 			break;
 	}
+	
 	return state;
 }
 
@@ -308,7 +310,7 @@ int SMTick3(int state) {
 				placedBlocks[0] = currentBlocks[0];
 			}
 			else if(currentRow == 7) {
-				if(checkPlacement(placedBlocks[currentRow - 1], currentBlocks[currentRow])) {
+				if(checkPlacement(placedBlocks[currentRow - 1], currentBlocks[currentRow], currentSize)) {
 					state = WIN;
 				}
 				else {
@@ -381,7 +383,7 @@ int main(void)
 	
 	//Tasks Period
 	ul int SMTick1_calc = 200;
-	ul int SMTick2_calc = 10;
+	ul int SMTick2_calc = 2;
 	ul int SMTick3_calc = 200;
 	
 	//Calculating GCD
@@ -430,14 +432,14 @@ int main(void)
 	//uc C2 = 0x00;
 	
 	clear_data();
+	clear_data();
 	
-	//transmit_data(0x00);
-	//transmit_data(0xFF);
+	//transmit_data(0xFFF7);
+	//transmit_data(0xFF, 0xF7);
 	
 	us i; //Loop iterator
     while (1) 
     {
-		
 		//Scheduler code
 		for (i = 0; i < numTasks; i++) {
 			//Task ready to tick
