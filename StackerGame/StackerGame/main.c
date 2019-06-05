@@ -6,9 +6,10 @@
  */ 
 
 #include <avr/io.h>
+#include <avr/eeprom.h>
 #include "io.c"
 #include "timer.h"
-#include "queue.h"
+#include "stack.h"
 #include "scheduler.h"
 #include "pwm.c"
 #include "shift_reg.c"
@@ -17,47 +18,78 @@
 #define us unsigned short
 #define ul unsigned long
 
-#define playButton PINC & 0x01
-#define gameResetButton PINC & 0x02
-#define difficultyButton PINC & 0x04
-
 #define NOTEC4 261.63
 #define NOTED4 293.66
+#define NOTEG4 392.00
+#define NOTEA4 440.00
 #define NOTEB4 493.88
 #define NOTEC5 523.25
 
-us success[2] = { NOTEB4, NOTEC5 }; //Sound when block is successfully placed.
-us fail[2] = { NOTED4, NOTEC4 }; //Sound when block is misplaced, ending game.
 
-/*
-B0 = SER
-B1 = RCLK
-B2 = SRCLK
-B3 = SRCLR
-
-C0 = Button 1
-C1 = Button 2
-C2 = Button 3
-C3 = Button 4
-*/
 
 //===Shared variables===
 //[0] = row zero. EX: 0x01 would place block row 1 column 8
-us placedBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0 }; 
-us currentBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+uc placedBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+uc currentBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+uc placedBlock;
+Stack result;
 
 //===Functions===
 uc checkPlacement(uc placed, uc current, uc size) { //Checks if placement was valid, returns # of blocks placed correctly
-	if(placed == current) {
+	uc i = 0;
+	if(!(placed & current)) {
+		return 0;
+	}
+	else if(placed == current) {
 		return size;
 	}
 	else {
 		switch(size) {
 			case 3:
-				
+				//Check if either is on right side
+				if(placed & 0x01) {
+					if(current & 0x02) {
+						return 2;
+					}
+					else {
+						return 1;
+					}
+				}
+				else if(current & 0x01) {
+					if(placed & 0x02) {
+						return 2;
+					}
+					else {
+						return 1;
+					}
+				}
+				else {
+					//Neither on right side
+					while(!((placed & 0x01) || (current & 0x01))) {
+						current = current >> 1;
+						placed = placed >> 1;
+						i++;
+					}
+					if(placed & 0x01) {
+						if(current & 0x02) {
+							return 2;
+						}
+						else {
+							return 1;
+						}
+					}
+					else if(current & 0x01) {
+						if(placed & 0x02) {
+							return 2;
+						}
+						else {
+							return 1;
+						}
+					}
+				}
 				break;
 			case 2:
-				
+				return 1;
 				break;
 			case 1:
 				return 0;
@@ -68,10 +100,12 @@ uc checkPlacement(uc placed, uc current, uc size) { //Checks if placement was va
 }
 
 //===User Defined FSMs===
-enum soundState { OFF, SUCCESS, FAIL };
+enum soundState { OFF, SUCCESS, FAIL, SOUND_WIN };
 
 int SMTick1(int state) {
-	
+	static us success[2] = { NOTEB4, NOTEC5 }; //Sound when block is successfully placed.
+	static us win[4] = { NOTEG4, NOTEA4, NOTEB4, NOTEC5 }; //Plays when win
+	static us fail[2] = { NOTED4, NOTEC4 }; //Sound when block is misplaced, ending game.
 	uc button1 = ~PINC & 0x01;
 	uc button2 = ~PINC & 0x02;
 	static uc tick1;
@@ -104,6 +138,14 @@ int SMTick1(int state) {
 				state = FAIL;
 			}
 			break;
+		case SOUND_WIN:
+			if(tick1 == 4) {
+				state = OFF;
+			}
+			else {
+				state = SOUND_WIN;
+			}
+			break;
 		default: state = OFF; break;
 	}
 	switch(state) {
@@ -129,6 +171,20 @@ int SMTick1(int state) {
 			}
 			++tick1;
 			break;
+		case SOUND_WIN:
+			if(tick1 == 0) {
+				set_PWM(win[0]);
+			}
+			else if(tick1 == 1) {
+				set_PWM(win[1]);
+			}
+			else if(tick1 == 1) {
+				set_PWM(win[2]);
+			}
+			else {
+				set_PWM(win[3]);
+			}
+			break;
 	}
 	return state;
 }
@@ -137,11 +193,9 @@ enum displayState { ROW1, ROW2, ROW3, ROW4, ROW5, ROW6, ROW7, ROW8 };
 
 int SMTick2(int state) {
 	clear_data();
-	//clear_data();
 	
 	switch(state) {
 		case ROW1:
-			//transmit_data(0x7F);//Select Row
 			if(placedBlocks[0] != 0) {
 				transmit_data(placedBlocks[0], 0x7F);
 			}
@@ -151,7 +205,6 @@ int SMTick2(int state) {
 			state = ROW2;
 			break;
 		case ROW2:
-			//transmit_data(0xBF);//Select Row
 			if(placedBlocks[1] != 0) {
 				transmit_data(placedBlocks[1], 0xBF);
 			}
@@ -161,7 +214,6 @@ int SMTick2(int state) {
 			state = ROW3;
 			break;
 		case ROW3:
-			//transmit_data(0xDF);//Select Row
 			if(placedBlocks[2] != 0) {
 				transmit_data(placedBlocks[2], 0xDF);
 			}
@@ -171,7 +223,6 @@ int SMTick2(int state) {
 			state = ROW4;
 			break;
 		case ROW4:
-			//transmit_data(0xEF);//Select Row
 			if(placedBlocks[3] != 0) {
 				transmit_data(placedBlocks[3], 0xEF);
 			}
@@ -181,7 +232,6 @@ int SMTick2(int state) {
 			state = ROW5;
 			break;
 		case ROW5:
-			//transmit_data(0xF7);//Select Row
 			if(placedBlocks[4] != 0) {
 				transmit_data(placedBlocks[4], 0xF7);
 			}
@@ -191,7 +241,6 @@ int SMTick2(int state) {
 			state = ROW6;
 			break;
 		case ROW6:
-			//transmit_data(0xFB);//Select Row
 			if(placedBlocks[5] != 0) {
 				transmit_data(placedBlocks[5], 0xFB);
 			}
@@ -201,7 +250,6 @@ int SMTick2(int state) {
 			state = ROW7;
 			break;
 		case ROW7:
-			//transmit_data(0xFD);//Select Row
 			if(placedBlocks[6] != 0) {
 				transmit_data(placedBlocks[6], 0xFD);
 			}
@@ -211,7 +259,6 @@ int SMTick2(int state) {
 			state = ROW8;
 			break;
 		case ROW8:
-			//transmit_data(0xFE);//Select Row
 			if(placedBlocks[7] != 0) {
 				transmit_data(placedBlocks[7], 0xFE);
 			}
@@ -231,18 +278,40 @@ int SMTick2(int state) {
 enum gameState { MENU, PLAY, CHECK, WIN, LOSE, GAME_RESET, DIFFICULTY_SELECT };
 
 int SMTick3(int state) {
+	static uc play;
 	static uc currentRow;
 	static uc currentSize; //Size of current blocks 1-3
 	static uc direction; //0 = Left | 1 = Right
+	static uc difficulty; //number of starting blocks (lower is harder)
+	static uc tick;
+	
+	uc playButton = ~PINC & 0x01;
+	uc gameResetButton = ~PINC & 0x02;
+	uc difficultyButton = ~PINC & 0x04;
 	
 	switch(state) {
 		case MENU:
 			if(playButton) {
-				state = PLAY;
-				currentRow = 0;
-				currentSize = 0;
-				direction = 0;
-				currentBlocks[0] = 0x07;
+				play = 1;
+			}
+			if(play) {
+				if(!playButton) {
+					play = 0;
+					state = PLAY;
+					currentRow = 7;
+					currentSize = difficulty;
+					direction = 0;
+					tick = 1;
+					if (difficulty == 3) {
+						currentBlocks[7] = 0x07;
+					}
+					else if (difficulty == 2) {
+						currentBlocks[7] = 0x18;
+					}
+					else {
+						currentBlocks[7] = 0x10;
+					}
+				}
 			}
 			else if(difficultyButton) {
 				state = DIFFICULTY_SELECT;
@@ -267,9 +336,35 @@ int SMTick3(int state) {
 			break;
 		case WIN:
 			//Nothing
+			if(playButton) {
+				play = 1;
+			}
+			if(play) {
+				if(!playButton) {
+					play = 0;
+					state = MENU;
+					tick = 1;
+				}
+			}
+			else {
+				state = WIN;
+			}
 			break;
 		case LOSE:
 			//Nothing
+			if(playButton) {
+				play = 1;
+			}
+			if(play) {
+				if(!playButton) {
+					play = 0;
+					state = MENU;
+					tick = 1;
+				}
+			}
+			else {
+				state = LOSE;
+			}
 			break;
 		case GAME_RESET:
 			//Nothing
@@ -278,17 +373,23 @@ int SMTick3(int state) {
 			//Nothing
 			break;
 		default:
+			difficulty = 3;
+			tick = 1;
+			state = MENU;
 			break;
 	}
 	uc i;
 	switch(state) {
 		case MENU:
-			for(i = 0; i < 8; i++) {
-				placedBlocks[i] = 0;
-				currentBlocks[i] = 0;
+			if(tick == 1) {
+				for(i = 0; i < 8; i++) {
+					placedBlocks[i] = 0;
+					currentBlocks[i] = 0;
+				}
+				LCD_ClearScreen();
+				LCD_DisplayString(1, "Play/Difficulty");
+				tick = 0;
 			}
-			//LCD_ClearScreen();
-			//LCD_DisplayString(1, "Play/Difficulty");
 			break;
 		case PLAY:
 			if(currentBlocks[currentRow] & 0x80) {
@@ -305,11 +406,20 @@ int SMTick3(int state) {
 			}
 			break;
 		case CHECK:
-			if(currentRow == 0) {
-				currentRow = 1;
-				placedBlocks[0] = currentBlocks[0];
+			if(currentRow == 7) {
+				currentRow = 6;
+				placedBlocks[7] = currentBlocks[7];
+				if (difficulty == 3) {
+					currentBlocks[6] = 0x07;
+				}
+				else if (difficulty == 2) {
+					currentBlocks[6] = 0x18;
+				}
+				else {
+					currentBlocks[6] = 0x10;
+				}
 			}
-			else if(currentRow == 7) {
+			else if(currentRow == 0) {
 				if(checkPlacement(placedBlocks[currentRow - 1], currentBlocks[currentRow], currentSize)) {
 					state = WIN;
 				}
@@ -319,14 +429,14 @@ int SMTick3(int state) {
 			}
 			else {
 				//If placement is valid, continue. ValidPlaced stores 
-				uc validPlaced = checkPlacement(placedBlocks[currentRow - 1], currentBlocks[currentRow], currentSize);
+				uc validPlaced = checkPlacement(placedBlocks[currentRow + 1], currentBlocks[currentRow], currentSize);
 				if(validPlaced) {
 					placedBlocks[currentRow] = currentBlocks[currentRow];
-					currentRow++;
-					if(currentRow <= 1) {
+					currentRow--;
+					if(currentRow == 6) {
 						currentSize = validPlaced;
 					}
-					else if(currentRow <= 4) {
+					else if(currentRow >= 3) {
 						if(validPlaced > 2) {
 							currentSize = 2;
 						}
@@ -349,17 +459,26 @@ int SMTick3(int state) {
 					}
 				}
 				else {
+					PORTA = PORTA | 0x80;
 					state = LOSE;
 				}
 			}
 			break;
 		case WIN:
 			//Write to LCD YOU WIN!
-			state = MENU;
+			if(tick == 1) {
+				LCD_ClearScreen();
+				LCD_DisplayString(1, "YOU WIN!");
+				tick = 0;
+			}
 			break;
 		case LOSE:
 			//Write to LCD YOU LOSE
-			state = MENU;
+			if(tick == 1) {
+				LCD_ClearScreen();
+				LCD_DisplayString(1, "YOU LOSE");
+				tick = 0;
+			}
 			break;
 		case GAME_RESET:
 			//Nothing
@@ -384,7 +503,7 @@ int main(void)
 	//Tasks Period
 	ul int SMTick1_calc = 200;
 	ul int SMTick2_calc = 2;
-	ul int SMTick3_calc = 200;
+	ul int SMTick3_calc = 100;
 	
 	//Calculating GCD
 	ul int GCD = findGCD(SMTick1_calc, SMTick2_calc);
@@ -424,18 +543,11 @@ int main(void)
 	TimerSet(GCD);
 	TimerOn();
 	
-	//LCD_init();
-	//LCD_DisplayString(1, "PRESS START");
-	
-	//uc C0 = 0x00;
-	//uc C1 = 0x00;
-	//uc C2 = 0x00;
+	LCD_init();
+	LCD_DisplayString(1, "PRESS START");
 	
 	clear_data();
 	clear_data();
-	
-	//transmit_data(0xFFF7);
-	//transmit_data(0xFF, 0xF7);
 	
 	us i; //Loop iterator
     while (1) 
