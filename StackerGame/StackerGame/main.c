@@ -34,10 +34,53 @@ uc placedBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 uc currentBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 uc placedBlock;
 uc result = 0x00;
+uint8_t totalScore;
+uc* score = "";
 task task3;
 ul int GCD;
 
 //===Functions===
+void getScore() {
+	totalScore = eeprom_read_byte(1);
+	if(totalScore == 0) {
+		score = "      PLAY           SCORE: 0          ";
+	}
+	/*
+	switch(totalScore) {
+		case 0:
+		score = "      PLAY           SCORE: 0          ";
+		case 1:
+		score = "      PLAY           SCORE: 1          ";
+		case 2:
+		score = "      PLAY           SCORE: 2          ";
+		case 3:
+		score = "      PLAY           SCORE: 3          ";
+		case 4:
+		score = "      PLAY           SCORE: 4          ";
+		case 5:
+		score = "      PLAY           SCORE: 5          ";
+		case 6:
+		score = "      PLAY           SCORE: 6          ";
+		case 7:
+		score = "      PLAY           SCORE: 7          ";
+		case 8:
+		score = "      PLAY           SCORE: 8          ";
+		case 9:
+		score = "      PLAY           SCORE: 9          ";
+		case 10:
+		score = "      PLAY          SCORE: 10          ";
+		default:
+		score = "      PLAY         SCORE: MAX          ";
+	}
+	*/
+	return;
+}
+
+void clearScore() {
+	totalScore = 0;
+	eeprom_update_byte(1, totalScore);
+}
+
 us handlePlacement(uc placed, uc current, uc size, uc transition) {
 	uc i = 0;
 	uc returnSize;
@@ -531,7 +574,8 @@ int SMTick3(int state) {
 					currentBlocks[i] = 0;
 				}
 				LCD_ClearScreen();
-				LCD_DisplayString(1, "   PRESS START                     ");
+				score = "      PLAY                             ";
+				LCD_DisplayString(1, score);
 				tick = 0;
 			}
 			break;
@@ -609,6 +653,9 @@ int SMTick3(int state) {
 				LCD_DisplayString(1, "    YOU WIN!                     ");
 				tick = 0;
 				result = 0x02;
+				totalScore = eeprom_read_byte(1);
+				totalScore++;
+				eeprom_write_byte(1, totalScore);
 			}
 			break;
 		case LOSE:
@@ -696,6 +743,16 @@ int main(void)
 	TimerOn();
 	
 	LCD_init();
+	
+	/*
+	totalScore = 3;
+	eeprom_update_byte(1, totalScore);
+	uint8_t testScore;
+	testScore = eeprom_read_byte(1);
+	if(testScore == 3) {
+		score = "Score: 5";
+	}
+	*/
 	
 	clear_data();
 	clear_data();
