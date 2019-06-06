@@ -10,6 +10,7 @@
 #include "io.c"
 #include "timer.h"
 #include "stack.h"
+#include "queue.h"
 #include "scheduler.h"
 #include "pwm.c"
 #include "shift_reg.c"
@@ -18,151 +19,257 @@
 #define us unsigned short
 #define ul unsigned long
 
+//Music Notes
 #define NOTEC4 261.63
 #define NOTED4 293.66
 #define NOTEG4 392.00
+#define NOTEF4 349.23
 #define NOTEA4 440.00
 #define NOTEB4 493.88
 #define NOTEC5 523.25
 
-
-
 //===Shared variables===
-//[0] = row zero. EX: 0x01 would place block row 1 column 8
+//[0] = row zero. EX: 0x01 would place block row 1 column 8 (from top to bottom)
 uc placedBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 uc currentBlocks[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 uc placedBlock;
-Stack result;
+uc result = 0x00;
+task task3;
+ul int GCD;
 
 //===Functions===
-uc checkPlacement(uc placed, uc current, uc size) { //Checks if placement was valid, returns # of blocks placed correctly
+us handlePlacement(uc placed, uc current, uc size, uc transition) {
 	uc i = 0;
-	if(!(placed & current)) {
-		return 0;
+	uc returnSize;
+	us returnValue;
+	
+	if(size == 1) {
+		transition = 3;
 	}
-	else if(placed == current) {
-		return size;
+	else if((size == 2 && transition == 1)) {
+		transition = 2;
 	}
-	else {
-		switch(size) {
-			case 3:
-				//Check if either is on right side
+	if(transition == 0) {//Not a transition, still 3 blocks
+		if(placed == current) {
+			returnValue = current;
+			returnValue = returnValue << 8;
+			returnValue = returnValue | 0x0002;
+		}
+		else {
+			//Check if either is on right side
+			if(placed & 0x01) {//placed = 0000 0111
+				if(current & 0x02) {//current = 0000 1110
+					return 0x0602;
+				}
+				else {
+					return 0x0401;
+				}
+			}
+			else if(current & 0x01) {//current = 0000 0111
+				if(placed & 0x02) {//placed = 0000 1110
+					return 0x0602;
+				}
+				else {
+					return 0x0401;
+				}
+			}
+			else {
+				//Neither on right side
+				while(!((placed & 0x01) || (current & 0x01))) {
+					current = current >> 1;
+					placed = placed >> 1;
+					i++;
+				}
 				if(placed & 0x01) {
 					if(current & 0x02) {
-						return 2;
+						returnSize = 0x02;
 					}
 					else {
-						return 1;
+						returnSize = 0x01;
 					}
+					returnValue = placed & current;
+					returnValue = returnValue << (i + 8);
+					returnValue = returnValue | returnSize;
 				}
-				else if(current & 0x01) {
+				else {
 					if(placed & 0x02) {
-						return 2;
+						returnSize = 2;
 					}
 					else {
-						return 1;
+						returnSize = 0x01;
+					}
+					returnValue = placed & current;
+					returnValue = returnValue << (i + 8);
+					returnValue = returnValue | returnSize;
+				}
+			}
+		}
+	}
+	else if(transition == 1) {//1st Transition -> 2 blocks
+		if(placed == current) {
+			returnValue = current;
+			returnValue = returnValue << 8;
+			returnValue = returnValue | 0x0002;
+			return returnValue;
+		}
+		else {
+			if(placed & 0x01) {
+				if(current & 0x02) {
+					returnSize = 2;
+				}
+				else {
+					returnSize = 1;
+				}
+				returnValue = placed & current;
+				returnValue = returnValue << 8;
+				returnValue = returnValue | returnSize;
+			}
+			else if(current & 0x01) {
+				if(placed & 0x02) {
+					returnSize = 2;
+				}
+				else {
+					returnSize = 1;
+				}
+				returnValue = placed & current;
+				returnValue = returnValue << 8;
+				returnValue = returnValue | returnSize;
+			}
+			else {
+				while(!((placed & 0x01) || (current & 0x01))) {
+					current = current >> 1;
+					placed = placed >> 1;
+					i++;
+				}
+				if(current & 0x01) {
+					if(placed & 0x02) {
+						returnSize = 2;
+					}
+					else {
+						returnSize = 1;
 					}
 				}
 				else {
-					//Neither on right side
-					while(!((placed & 0x01) || (current & 0x01))) {
-						current = current >> 1;
-						placed = placed >> 1;
-						i++;
+					if(current & 0x02) {
+						returnSize = 2;
 					}
-					if(placed & 0x01) {
-						if(current & 0x02) {
-							return 2;
-						}
-						else {
-							return 1;
-						}
-					}
-					else if(current & 0x01) {
-						if(placed & 0x02) {
-							return 2;
-						}
-						else {
-							return 1;
-						}
+					else {
+						returnSize = 1;
 					}
 				}
-				break;
-			case 2:
-				return 1;
-				break;
-			case 1:
-				return 0;
-				break;
+				returnValue = placed & current;
+				returnValue = returnValue << (i + 8);
+				returnValue = returnValue | returnSize;
+			}
+		}
+		
+	}
+	else if(transition == 2) {//Currently 2
+		if(placed == current) {
+			returnValue = current;
+			returnValue = returnValue << 8;
+			returnValue = returnValue | 0x0002;
+		}
+		else {
+			while(!((placed & 0x01) || (current & 0x01))) {
+				current = current >> 1;
+				placed = placed >> 1;
+				i++;
+			}
+			if(placed & 0x01) {
+				if((placed == 0x07) && (current & 0x02)) {
+					returnSize = 2;
+				}
+				else {
+					returnSize = 1;
+				}
+			}
+			else {
+				if((placed == 0x0E) && (current & 0x04)) {
+					returnSize = 2;
+				}
+				else {
+					returnSize = 1;
+				}
+			}
+			returnValue = placed & current;
+			returnValue = returnValue << (i + 8);
+			returnValue = returnValue | returnSize;
 		}
 	}
-	return 0;
+	else {//2nd transition -> 1 block
+		returnValue = placed & current;
+		returnValue = returnValue << 8;
+		returnValue = returnValue | 0x0001;
+	}
+	return returnValue;
+}
+uc checkPlacement(uc placed, uc current, uc size) { //Checks if placement was valid, returns # of blocks placed correctly
+	if(!(placed & current)) {
+		return 0;
+	}
+	else {
+		return 1;
+	}
 }
 
 //===User Defined FSMs===
-enum soundState { OFF, SUCCESS, FAIL, SOUND_WIN };
+enum soundState { SOUND_OFF, SOUND_FAIL, SOUND_WIN, SOUND_PLACE };
 
 int SMTick1(int state) {
 	static us success[2] = { NOTEB4, NOTEC5 }; //Sound when block is successfully placed.
-	static us win[4] = { NOTEG4, NOTEA4, NOTEB4, NOTEC5 }; //Plays when win
+	static us win[4] = { NOTEF4, NOTEA4, NOTEB4, NOTEC5 }; //Plays when win
 	static us fail[2] = { NOTED4, NOTEC4 }; //Sound when block is misplaced, ending game.
-	uc button1 = ~PINC & 0x01;
-	uc button2 = ~PINC & 0x02;
 	static uc tick1;
 	
 	switch(state) {
-		case OFF:
-			if(button1) {
-				state = SUCCESS;
-			}
-			else if(button2) {
-				state = FAIL;
+		case SOUND_OFF:
+			if(result) {
+				if(result == 0x01) {
+					state = SOUND_FAIL;
+				}
+				else if(result == 0x02) {
+					state = SOUND_WIN;
+				}
+				else if(result == 0x03) {
+					state = SOUND_PLACE;
+				}
+				else {
+					state = SOUND_OFF;
+				}
+				result = 0x00;
 			}
 			else {
-				state = OFF;
+				state = SOUND_OFF;
 			}
 			break;
-		case SUCCESS: 
+		case SOUND_FAIL: 
 			if(tick1 == 2) {
-				state = OFF;
+				state = SOUND_OFF;
 			}
 			else {
-				state = SUCCESS;
-			}
-			break;
-		case FAIL: 
-			if(tick1 == 2) {
-				state = OFF;
-			}
-			else {
-				state = FAIL;
+				state = SOUND_FAIL;
 			}
 			break;
 		case SOUND_WIN:
 			if(tick1 == 4) {
-				state = OFF;
+				state = SOUND_OFF;
 			}
 			else {
 				state = SOUND_WIN;
 			}
 			break;
-		default: state = OFF; break;
+		case SOUND_PLACE:
+			state = SOUND_OFF;
+			break;
+		default: state = SOUND_OFF; break;
 	}
 	switch(state) {
-		case OFF: 
+		case SOUND_OFF: 
 			set_PWM(0); 
 			tick1 = 0;
 			break;
-		case SUCCESS: 
-			if(tick1 == 0) {
-				set_PWM(success[0]);
-			}
-			else if(tick1 == 1) {
-				set_PWM(success[1]);
-			}
-			++tick1;
-			break;
-		case FAIL:
+		case SOUND_FAIL:
 			if(tick1 == 0) {
 				set_PWM(fail[0]);
 			}
@@ -178,12 +285,16 @@ int SMTick1(int state) {
 			else if(tick1 == 1) {
 				set_PWM(win[1]);
 			}
-			else if(tick1 == 1) {
+			else if(tick1 == 2) {
 				set_PWM(win[2]);
 			}
 			else {
 				set_PWM(win[3]);
 			}
+			++tick1;
+			break;
+		case SOUND_PLACE:
+			set_PWM(NOTEF4);
 			break;
 	}
 	return state;
@@ -283,7 +394,11 @@ int SMTick3(int state) {
 	static uc currentSize; //Size of current blocks 1-3
 	static uc direction; //0 = Left | 1 = Right
 	static uc difficulty; //number of starting blocks (lower is harder)
+	static uc difficultySelect;
 	static uc tick;
+	static uc validPlaced;
+	static us handleBlockPlaced;
+	static uc blockPlaced;
 	
 	uc playButton = ~PINC & 0x01;
 	uc gameResetButton = ~PINC & 0x02;
@@ -299,22 +414,27 @@ int SMTick3(int state) {
 					play = 0;
 					state = PLAY;
 					currentRow = 7;
-					currentSize = difficulty;
+					currentSize = 3;
 					direction = 0;
 					tick = 1;
+					currentBlocks[7] = 0x0E;
+					LCD_ClearScreen();
+					LCD_DisplayString(1, "    PLAYING                ");
+					result = 0x03;//Plays tone when block is placed
 					if (difficulty == 3) {
-						currentBlocks[7] = 0x07;
+						task3.period = 40/GCD;
 					}
 					else if (difficulty == 2) {
-						currentBlocks[7] = 0x18;
+						task3.period = 60/GCD;
 					}
 					else {
-						currentBlocks[7] = 0x10;
+						task3.period = 100/GCD;
 					}
 				}
 			}
 			else if(difficultyButton) {
 				state = DIFFICULTY_SELECT;
+				tick = 1;
 			}
 			else {
 				state = MENU;
@@ -370,10 +490,34 @@ int SMTick3(int state) {
 			//Nothing
 			break;
 		case DIFFICULTY_SELECT:
-			//Nothing
+			if(playButton) {
+				play = 1;
+			}
+			else if(difficultyButton) {
+				difficultySelect = 1;
+			}
+			if(play) {
+				if(!playButton) {
+					play = 0;
+					tick = 1;
+					state = MENU;
+				}
+			}
+			if(difficultySelect) {
+				if(!difficultyButton) {
+					difficultySelect = 0;
+					tick = 1;
+					if(difficulty == 3) {
+						difficulty = 1;
+					}
+					else {
+						difficulty++;
+					}
+				}
+			}
 			break;
 		default:
-			difficulty = 3;
+			difficulty = 1;
 			tick = 1;
 			state = MENU;
 			break;
@@ -387,7 +531,7 @@ int SMTick3(int state) {
 					currentBlocks[i] = 0;
 				}
 				LCD_ClearScreen();
-				LCD_DisplayString(1, "Play/Difficulty");
+				LCD_DisplayString(1, "   PRESS START                     ");
 				tick = 0;
 			}
 			break;
@@ -407,20 +551,13 @@ int SMTick3(int state) {
 			break;
 		case CHECK:
 			if(currentRow == 7) {
+				result = 0x03;
 				currentRow = 6;
 				placedBlocks[7] = currentBlocks[7];
-				if (difficulty == 3) {
-					currentBlocks[6] = 0x07;
-				}
-				else if (difficulty == 2) {
-					currentBlocks[6] = 0x18;
-				}
-				else {
-					currentBlocks[6] = 0x10;
-				}
+				currentBlocks[6] = 0x07;
 			}
 			else if(currentRow == 0) {
-				if(checkPlacement(placedBlocks[currentRow - 1], currentBlocks[currentRow], currentSize)) {
+				if(checkPlacement(placedBlocks[currentRow + 1], currentBlocks[currentRow], currentSize)) {
 					state = WIN;
 				}
 				else {
@@ -429,25 +566,27 @@ int SMTick3(int state) {
 			}
 			else {
 				//If placement is valid, continue. ValidPlaced stores 
-				uc validPlaced = checkPlacement(placedBlocks[currentRow + 1], currentBlocks[currentRow], currentSize);
+				validPlaced = checkPlacement(placedBlocks[currentRow + 1], currentBlocks[currentRow], currentSize);
 				if(validPlaced) {
-					placedBlocks[currentRow] = currentBlocks[currentRow];
-					currentRow--;
+					result = 0x03;//Plays tone when block is placed
+					//placedBlocks[currentRow] = currentBlocks[currentRow];
 					if(currentRow == 6) {
-						currentSize = validPlaced;
+						handleBlockPlaced = handlePlacement(placedBlocks[currentRow + 1], currentBlocks[currentRow], currentSize, 0);
+						currentSize = handleBlockPlaced;
+						placedBlock = handleBlockPlaced >> 8;
 					}
-					else if(currentRow >= 3) {
-						if(validPlaced > 2) {
-							currentSize = 2;
-						}
-						else {
-							currentSize = validPlaced;
-						}
+					else if(currentRow >= 4) {
+						handleBlockPlaced = handlePlacement(placedBlocks[currentRow + 1], currentBlocks[currentRow], currentSize, 1);
+						currentSize = handleBlockPlaced;
+						placedBlock = handleBlockPlaced >> 8;
 					}
 					else {
-						currentSize = 1;
+						handleBlockPlaced = handlePlacement(placedBlocks[currentRow + 1], currentBlocks[currentRow], currentSize, 3);
+						currentSize = handleBlockPlaced;
+						placedBlock = handleBlockPlaced >> 8;
 					}
-					
+					placedBlocks[currentRow] = placedBlock;
+					currentRow--;
 					if(currentSize == 3) {
 						currentBlocks[currentRow] = 0x38;
 					}
@@ -459,7 +598,6 @@ int SMTick3(int state) {
 					}
 				}
 				else {
-					PORTA = PORTA | 0x80;
 					state = LOSE;
 				}
 			}
@@ -468,23 +606,37 @@ int SMTick3(int state) {
 			//Write to LCD YOU WIN!
 			if(tick == 1) {
 				LCD_ClearScreen();
-				LCD_DisplayString(1, "YOU WIN!");
+				LCD_DisplayString(1, "    YOU WIN!                     ");
 				tick = 0;
+				result = 0x02;
 			}
 			break;
 		case LOSE:
 			//Write to LCD YOU LOSE
 			if(tick == 1) {
 				LCD_ClearScreen();
-				LCD_DisplayString(1, "YOU LOSE");
+				LCD_DisplayString(1, "    YOU LOSE                     ");
 				tick = 0;
+				result = 0x01;
 			}
 			break;
 		case GAME_RESET:
 			//Nothing
 			break;
 		case DIFFICULTY_SELECT:
-			//TODO
+			if(tick == 1) {
+				LCD_ClearScreen();
+				if(difficulty == 1) {
+					LCD_DisplayString(1, "  Difficulty:        EASY       ");
+				}
+				else if(difficulty == 2) {
+					LCD_DisplayString(1,"  Difficulty:       MEDIUM       ");
+				}
+				else {
+					LCD_DisplayString(1,"  Difficulty:        HARD        ");
+				}
+				tick = 0;
+			}
 			break;
 		default:
 			break;
@@ -501,12 +653,12 @@ int main(void)
 	DDRD = 0xFF; PORTD = 0x00; //LCD Data Lines
 	
 	//Tasks Period
-	ul int SMTick1_calc = 200;
+	ul int SMTick1_calc = 150;
 	ul int SMTick2_calc = 2;
 	ul int SMTick3_calc = 100;
 	
 	//Calculating GCD
-	ul int GCD = findGCD(SMTick1_calc, SMTick2_calc);
+	GCD = findGCD(SMTick1_calc, SMTick2_calc);
 	GCD = findGCD(GCD, SMTick3_calc);
 	
 	//Recalculate GCD periods for scheduler
@@ -517,7 +669,7 @@ int main(void)
 	//Array of Tasks
 	static task task1;
 	static task task2;
-	static task task3;
+	//static task task3;
 	task *tasks[] = { &task1, &task2, &task3 };
 	const us numTasks = sizeof(tasks)/sizeof(task*);
 	
@@ -544,7 +696,6 @@ int main(void)
 	TimerOn();
 	
 	LCD_init();
-	LCD_DisplayString(1, "PRESS START");
 	
 	clear_data();
 	clear_data();

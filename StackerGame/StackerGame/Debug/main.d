@@ -19,8 +19,8 @@ main.d main.o: .././main.c \
  ../../../includes/io.h ../../../includes/timer.h \
  ../../../includes/stack.h \
  d:\atmel\7.0\toolchain\avr8\avr8-gnu-toolchain\avr\include\stdlib.h \
- ../../../includes/scheduler.h ../../../includes/pwm.c \
- ../../../includes/shift_reg.c
+ ../../../includes/queue.h ../../../includes/scheduler.h \
+ ../../../includes/pwm.c ../../../includes/shift_reg.c
 
 d:\atmel\7.0\toolchain\avr8\avr8-gnu-toolchain\avr\include\avr\io.h:
 
@@ -63,6 +63,8 @@ d:\atmel\7.0\toolchain\avr8\avr8-gnu-toolchain\lib\gcc\avr\5.4.0\include\stdarg.
 ../../../includes/stack.h:
 
 d:\atmel\7.0\toolchain\avr8\avr8-gnu-toolchain\avr\include\stdlib.h:
+
+../../../includes/queue.h:
 
 ../../../includes/scheduler.h:
 
