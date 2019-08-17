@@ -40,42 +40,6 @@ task task3;
 ul int GCD;
 
 //===Functions===
-void getScore() {
-	totalScore = eeprom_read_byte(1);
-	if(totalScore == 0) {
-		score = "      PLAY           SCORE: 0          ";
-	}
-	/*
-	switch(totalScore) {
-		case 0:
-		score = "      PLAY           SCORE: 0          ";
-		case 1:
-		score = "      PLAY           SCORE: 1          ";
-		case 2:
-		score = "      PLAY           SCORE: 2          ";
-		case 3:
-		score = "      PLAY           SCORE: 3          ";
-		case 4:
-		score = "      PLAY           SCORE: 4          ";
-		case 5:
-		score = "      PLAY           SCORE: 5          ";
-		case 6:
-		score = "      PLAY           SCORE: 6          ";
-		case 7:
-		score = "      PLAY           SCORE: 7          ";
-		case 8:
-		score = "      PLAY           SCORE: 8          ";
-		case 9:
-		score = "      PLAY           SCORE: 9          ";
-		case 10:
-		score = "      PLAY          SCORE: 10          ";
-		default:
-		score = "      PLAY         SCORE: MAX          ";
-	}
-	*/
-	return;
-}
-
 void clearScore() {
 	totalScore = 0;
 	eeprom_update_byte(1, totalScore);
@@ -738,23 +702,11 @@ int main(void)
 	task3.elapsedTime = SMTick3_period;
 	task3.TickFct = &SMTick3;
 	
+	//Initilization
 	PWM_on();
 	TimerSet(GCD);
 	TimerOn();
-	
 	LCD_init();
-	
-	/*
-	totalScore = 3;
-	eeprom_update_byte(1, totalScore);
-	uint8_t testScore;
-	testScore = eeprom_read_byte(1);
-	if(testScore == 3) {
-		score = "Score: 5";
-	}
-	*/
-	
-	clear_data();
 	clear_data();
 	
 	us i; //Loop iterator
